@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">    
+<head>
+    <meta charset="utf-8">
+    <title>: </title>
+    <link rel="stylesheet" href="css/reveal.min.css">
+    <link rel="stylesheet" href="css/theme/default.css" id="theme">
+</head>
+ 
+<body>
+    <div class="reveal">
+        <div class="slides">
+<section id="lightweight-configuration-management" class="level1">
+<h1>Lightweight Configuration Management</h1>
+<p>(for Fun and for Profit)</p>
+</section>
+<section id="background" class="level1">
+<h1>Background</h1>
+<aside class="notes">
+<ul>
+<li>let's start with some background
+</aside>
+</li>
+</ul>
+</section>
+<section id="puppet" class="level1">
+<h1>Puppet</h1>
+<aside class="notes">
+<ul>
+<li>started using CM ~1.5 years ago w/ Puppet on the World Bank project</li>
+<li>used Puppet to rebuild internal services when Deb5 went EOL</li>
+<li>started using Puppet on other client projects, moved away from using a Puppet master
+</aside>
+</li>
+</ul>
+</section>
+<section id="vagrant" class="level1">
+<h1>Vagrant</h1>
+<aside class="notes">
+<ul>
+<li>Around that time..</li>
+<li>Started adding Vagrant to the mix to validate our configurations on throwaway nodes before provisioning production</li>
+<li>(I really like Vagrant. FYI: The author will be speaking at SoftwareGR in October)
+</aside>
+</li>
+</ul>
+</section>
+<section id="chef" class="level1">
+<h1>Chef</h1>
+<aside class="notes">
+<ul>
+<li>we thought it would be good to know both, so we</li>
+<li>started experimenting with Chef, found it slightly faster, more community ties to RoRs Dev community
+</aside>
+</li>
+</ul>
+</section>
+<section id="capistrano" class="level1">
+<h1>Capistrano</h1>
+<aside class="notes">
+<ul>
+<li>got tired of manually SCPing configs over and running puppet standalone or chef solo by hand each time</li>
+<li>started to use Capistrano to automate this</li>
+<li>(could have been fabric or whatever, but we already used Capistrano for deployment, etc.)</li>
+<li>we still used both Puppet and Chef regularly so we didn't want to commit to similar tools in either space (e.g. knife)</li>
+<li>we wanted something independent of particular provisioning tools
+</aside>
+
+</li>
+</ul>
+</section>
+<section id="provisioner-independent" class="level1">
+<h1>Provisioner Independent</h1>
+<figure>
+<img src="images/swedish_chef.jpg" />
+</figure>
+<aside class="notes">
+<ul>
+<li>Our Capistrano-based approach lets us use Puppet and Chef equally well.</li>
+<li>(though we're mostly using Chef these days, I have a fondness for the Puppet DSL and would happily pick it up again if a client project req. it)
+</aside>
+</li>
+</ul>
+</section>
+<section id="our-pattern-a-walkthrough" class="level1">
+<h1>Our Pattern, A Walkthrough</h1>
+<aside class="notes">
+<ul>
+<li>The current pattern…
+<ul>
+<li>includes:
+<ul>
+<li>Vagrantfile</li>
+<li>Capistrano config</li>
+<li>cookbooks/recipes (or modules/manifests)</li>
+</ul></li>
+<li>operationally:
+<ul>
+<li>(walk through deploy.rb)</li>
+<li>(walk through node JSON/runlist and recipes)</li>
+<li>(touch on Vagrantfile and ssh config magicks, if time)</li>
+</ul></li>
+<li>library mgmt:
+<ul>
+<li>bundler for gems</li>
+<li>berkshelf for cookbooks
+</aside>
+</li>
+</ul></li>
+</ul></li>
+</ul>
+</section>
+<section id="demo" class="level1">
+<h1>Demo</h1>
+<pre class="sourceCode bash"><code class="sourceCode bash">    <span class="kw">git</span> clone https://github.com/kuleszaj/chef-an-introduction
+    <span class="kw">cd</span> chef-an-introduction
+    <span class="kw">bundle</span> install
+    <span class="kw">bundle</span> exec cap berks
+    <span class="kw">bundle</span> exec cap vrails4 vg:up
+    <span class="kw">bundle</span> exec cap vrails4 bootstrap
+    <span class="kw">bundle</span> exec cap vrails4 chef</code></pre>
+<aside class="notes">
+<ul>
+<li>right now we're copying from a base when starting new projects</li>
+<li>we had an internal gem w/ a templatized version with options for puppet or chef, but it's out of date (anyone interested in contributing to that?)</li>
+<li>this expects ruby &gt;=1.9 (we're using rbenv these days)
+</aside>
+</li>
+</ul>
+</section>
+<section id="gemfile" class="level1">
+<h1>Gemfile</h1>
+<pre class="sourceCode ruby"><code class="sourceCode ruby">    <span class="co"># -*- mode: ruby -*-</span>
+    <span class="co"># # vi: set ft=ruby :</span>
+
+    source <span class="st">&quot;http://rubygems.org&quot;</span>
+
+    <span class="co"># Required for capistrano</span>
+    gem <span class="st">&quot;capistrano&quot;</span>
+
+    <span class="co"># Not required, but may be useful for debugging</span>
+    <span class="co">#gem &quot;pry&quot;</span>
+
+    <span class="co"># Required/Useful for Chef</span>
+    gem <span class="st">&quot;chef&quot;</span>,<span class="st">&quot;11.4.4&quot;</span>
+    gem <span class="st">&quot;berkshelf&quot;</span>
+    gem <span class="st">&quot;foodcritic&quot;</span></code></pre>
+<aside class="notes">
+</aside>
+
+</section>
+<section id="berksfile" class="level1">
+<h1>Berksfile</h1>
+<pre class="sourceCode ruby"><code class="sourceCode ruby">    <span class="co"># -*- mode: ruby -*-</span>
+    <span class="co"># vi: set ft=ruby :</span>
+
+    site <span class="st">:opscode</span>
+
+    cookbook <span class="st">&quot;apt&quot;</span>
+    cookbook <span class="st">&quot;apache2&quot;</span>
+    cookbook <span class="st">&quot;database&quot;</span></code></pre>
+<aside class="notes">
+</aside>
+
+</section>
+<section id="vagrantfile" class="level1">
+<h1>Vagrantfile</h1>
+<pre class="sourceCode ruby"><code class="sourceCode ruby">    <span class="co"># -*- mode: ruby -*-</span>
+    <span class="co"># vi: set ft=ruby :</span>
+
+    <span class="ot">@user_configuration</span> = {}
+    load <span class="dt">File</span>.join(<span class="dt">File</span>.dirname(<span class="dv">__FILE__</span>),<span class="st">&quot;config&quot;</span>,<span class="st">&quot;stages.rb&quot;</span>)
+
+    <span class="co"># This is specifically design for VirtualBox. You could fairly easily adapt it to another Vagrant provider such as VMWare Fusion or AWS.</span>
+    <span class="dt">Vagrant</span>.configure(<span class="st">&quot;2&quot;</span>) <span class="kw">do</span> |config|
+
+      config.ssh.forward_agent = <span class="dv">true</span>
+
+      <span class="co"># These types of options should be project specific:</span>
+      config.vm.box = <span class="st">&quot;precise64&quot;</span>
+      config.vm.box_url = <span class="st">&quot;http://files.vagrantup.com/precise64.box&quot;</span>
+
+      <span class="ot">@user_configuration</span>[<span class="st">&quot;vagrants&quot;</span>].each <span class="kw">do</span> |name|
+        config.vm.define <span class="st">&quot;</span><span class="ot">#{</span>name<span class="ot">}</span><span class="st">&quot;</span> <span class="kw">do</span> |vagrant|
+          vagrant.vm.hostname = <span class="st">&quot;</span><span class="ot">#{</span>name<span class="ot">}</span><span class="st">&quot;</span>
+          vagrant.vm.network <span class="st">:private_network</span>, type: <span class="st">:dhcp</span>
+        <span class="kw">end</span>
+      <span class="kw">end</span>
+    <span class="kw">end</span></code></pre>
+<aside class="notes">
+</aside>
+
+
+</section>
+<section id="chef-config" class="level1">
+<h1>Chef config</h1>
+<pre class="sourceCode ruby"><code class="sourceCode ruby">    chef
+    ├── <span class="dt">README</span>.md
+    ├── cookbooks
+    │   ├── apache2
+    │   ├── apt
+    │   ├── aws
+    │   ├── build-essential
+    │   ├── database
+    │   ├── mysql
+    │   ├── openssl
+    │   ├── postgresql
+    │   └── xfs
+    ├── rails4.json
+    ├── site-cookbooks
+    │   ├── <span class="dt">README</span>.md
+    │   └── rails4
+    ├── solo.rb
+    └── vrails4.json</code></pre>
+<aside class="notes">
+<ul>
+<li>coobooks directory populated when berkshelf runs</li>
+<li>site-cookbooks are project-specific</li>
+<li>rails4.json is the main entry point for chef (holds the runlist)
+</aside>
+</li>
+</ul>
+</section>
+<section id="rails4.json" class="level1">
+<h1>rails4.json</h1>
+<pre class="sourceCode json"><code class="sourceCode json">    {
+      <span class="dt">&quot;mysql&quot;</span>:
+        {
+          <span class="dt">&quot;server_root_password&quot;</span>: <span class="st">&quot;somethingsecret&quot;</span>,
+          <span class="dt">&quot;server_repl_password&quot;</span>: <span class="st">&quot;somethingsecret&quot;</span>,
+          <span class="dt">&quot;server_debian_password&quot;</span>: <span class="st">&quot;somethingsecret&quot;</span>
+        },
+      <span class="dt">&quot;run_list&quot;</span>:
+        [
+          <span class="st">&quot;recipe[apache2]&quot;</span>,
+          <span class="st">&quot;recipe[mysql::client]&quot;</span>,
+          <span class="st">&quot;recipe[mysql::ruby]&quot;</span>,
+          <span class="st">&quot;recipe[mysql::server]&quot;</span>,
+          <span class="st">&quot;recipe[rails4]&quot;</span>
+        ]
+    }</code></pre>
+<aside class="notes">
+<ul>
+<li>main entry point for a chef run (holds the runlist)</li>
+<li>also holds some attributes (mysql passwords in this case)</li>
+<li>vrails4.json used for vagrant (v prefix is our convention)</li>
+<li>not entirely dry, but lets us keep things like backups and monitoring from running on not production nodes
+</aside>
+
+</li>
+</ul>
+</section>
+<section id="capistrano-config" class="level1">
+<h1>Capistrano config</h1>
+<pre><code>    config/
+    ├── README.md
+    ├── base/
+    │   ├── berkshelf.rb
+    │   ├── bootstrap.rb
+    │   ├── chef.rb
+    │   ├── ssh.rb
+    │   ├── vg.rb
+    │   └── warning.rb
+    ├── custom/
+    │   ├── README.md
+    │   └── custom_example.rb
+    ├── deploy.rb
+    ├── ssh_configs/
+    │   └── example_ssh_config
+    └── stages.rb</code></pre>
+<aside class="notes">
+<ul>
+<li>deploy.rb wires everything up (used to contain everything in base/ too)</li>
+<li>ssh configs in standard format (&quot;installed&quot; to <code>~/.ssh/project-name/hostname_ssh_config</code>)</li>
+<li>ssh configs generated and destroy for Vagrants</li>
+<li>vg - vagrant stuff</li>
+<li>berkshelf, bootstrap, chef - chef stuff (could be swapped out for puppet stuff)</li>
+<li>custom - project specific stuff (clean separation from generic concerns)</li>
+<li>warning - you're deploying to production! (waits to let you rethink this)
+</aside>
+</li>
+</ul>
+</section>
+<section id="benefits-of-our-approach" class="level1">
+<h1>Benefits of Our Approach</h1>
+<ul>
+<li>Lightweight (no master or server)</li>
+<li>Two important indirections
+<ul>
+<li>target node (local / remote)</li>
+<li>Also easy to plug in another provisioning tool (we know Puppet and Chef both work, others probably do too)</li>
+</ul></li>
+<li>Uses tools most Rails developers are already familiar with (Ruby, Capistrano)</li>
+<li>Uses standard SSH config files to describe hosts (increasing portability and reusability)</li>
+</ul>
+<aside class="notes">
+<ul>
+<li>local / remote is important, using the same interface for both makes it easy to build on</li>
+</ul>
+</aside>
+
+</section>
+<section id="thanks" class="level1">
+<h1>Thanks!</h1>
+</section>
+<section id="credits" class="level1">
+<h1>Credits</h1>
+<p>&quot;The Swedish Chef&quot; image - Andrew Kuchling http://www.flickr.com/photos/akuchling/190704045/</p>
+</section>
+<section id="questions" class="level1">
+<h1>Questions?</h1>
+<aside class="notes">
+</aside>
+
+
+</section>
+        </div>
+    </div>
+    <script src="lib/js/head.min.js"></script>
+    <script src="js/reveal.min.js"></script>
+    <script>
+        // Required, even if empty.
+        Reveal.initialize({
+            controls: false,
+            progress: true,
+            keyboard: true,
+	    overview: false,
+            rollingLinks: false,
+            transition: "default",
+            maxScale: 10.0,
+            dependencies: [
+		// Speaker notes
+		{ src: 'plugin/notes/notes.js', async: true, condition: function() { return !!document.body.classList; } },
+	    ]
+	});
+    </script>
+</body>
+</html>
